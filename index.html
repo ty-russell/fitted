@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0b10">
+<title>Fitted</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230b0b10'/%3E%3Ctext x='50' y='68' font-size='58' text-anchor='middle' fill='%23c9a24b' font-family='sans-serif' font-weight='bold'%3EF%3C/text%3E%3C/svg%3E">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  :root{
+    --bg:#0b0b10; --card:#16161d; --card2:#1e1e27; --line:#2a2a35;
+    --gold:#c9a24b; --text:#f2f2f2; --dim:#8b8b98; --danger:#e05a5a;
+  }
+  html,body{ background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    overscroll-behavior:none; }
+  body{ padding:env(safe-area-inset-top) 0 calc(72px + env(safe-area-inset-bottom)); }
+  header{ padding:18px 20px 12px; display:flex; align-items:baseline; gap:10px; }
+  header h1{ font-size:26px; letter-spacing:-0.5px; }
+  header h1 span{ color:var(--gold); }
+  header .count{ font-size:13px; color:var(--dim); margin-left:auto; }
+
+  .view{ display:none; padding:0 16px; }
+  .view.active{ display:block; }
+
+  /* ---- Today ---- */
+  .fitscore{ display:flex; align-items:center; gap:12px; background:var(--card);
+    border:1px solid var(--line); border-radius:16px; padding:14px 16px; margin-top:6px; }
+  .fitscore .ring{ width:44px; height:44px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800;
+    color:#000; background:var(--gold); }
+  .fitscore .txt .rate{ font-size:16px; font-weight:700; }
+  .fitscore .txt .why{ font-size:12px; color:var(--dim); margin-top:2px; }
+  .outfit{ display:flex; flex-direction:column; gap:12px; margin-top:12px; }
+  .slot{ background:var(--card); border:1px solid var(--line); border-radius:18px;
+    overflow:hidden; display:flex; align-items:center; min-height:110px; position:relative; }
+  .slot img{ width:110px; height:110px; object-fit:cover; flex-shrink:0; }
+  .slot .ph{ width:110px; height:110px; flex-shrink:0; display:flex; align-items:center;
+    justify-content:center; font-size:34px; background:var(--card2); }
+  .slot .meta{ padding:0 16px; }
+  .slot .meta .lbl{ font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--gold); }
+  .slot .meta .name{ font-size:17px; margin-top:3px; }
+  .slot .meta .tags{ font-size:12px; color:var(--dim); margin-top:4px; }
+  .empty-note{ text-align:center; color:var(--dim); padding:60px 24px; line-height:1.6; }
+  .filters{ display:flex; gap:8px; margin:14px 2px; flex-wrap:wrap; }
+  .chip{ background:var(--card); border:1px solid var(--line); color:var(--text);
+    padding:8px 14px; border-radius:20px; font-size:13px; }
+  .chip.on{ background:var(--gold); color:#000; border-color:var(--gold); font-weight:600; }
+
+  /* ---- Closet ---- */
+  .grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:8px; }
+  .item{ position:relative; border-radius:14px; overflow:hidden; background:var(--card2);
+    aspect-ratio:1; border:1px solid var(--line); }
+  .item img{ width:100%; height:100%; object-fit:cover; }
+  .item .ph{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:30px; }
+  .item .x{ position:absolute; top:5px; right:5px; width:26px; height:26px; border-radius:50%;
+    background:rgba(0,0,0,.6); color:#fff; border:none; font-size:15px; line-height:26px; }
+  .item .tag{ position:absolute; bottom:0; left:0; right:0; font-size:10px; padding:4px 6px;
+    background:linear-gradient(transparent,rgba(0,0,0,.8)); text-transform:capitalize; }
+  .section-h{ font-size:12px; text-transform:uppercase; letter-spacing:1.5px; color:var(--dim);
+    margin:22px 4px 2px; }
+
+  /* ---- Buttons / bar ---- */
+  .btnrow{ display:flex; gap:10px; margin:20px 2px 8px; }
+  button.primary{ flex:1; background:var(--gold); color:#000; border:none; border-radius:14px;
+    padding:16px; font-size:16px; font-weight:700; letter-spacing:.3px; }
+  button.ghost{ background:var(--card); color:var(--text); border:1px solid var(--line);
+    border-radius:14px; padding:16px 18px; font-size:16px; }
+
+  nav{ position:fixed; bottom:0; left:0; right:0; display:flex;
+    background:rgba(11,11,16,.92); backdrop-filter:blur(12px); border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom); }
+  nav button{ flex:1; background:none; border:none; color:var(--dim); padding:14px 0 12px;
+    font-size:11px; display:flex; flex-direction:column; align-items:center; gap:3px; }
+  nav button .ic{ font-size:20px; }
+  nav button.on{ color:var(--gold); }
+
+  /* ---- Add sheet ---- */
+  .sheet{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none;
+    align-items:flex-end; z-index:50; }
+  .sheet.open{ display:flex; }
+  .sheet-inner{ background:var(--bg); width:100%; border-radius:22px 22px 0 0;
+    padding:20px 18px calc(24px + env(safe-area-inset-bottom)); max-height:92vh; overflow:auto;
+    border-top:1px solid var(--line); }
+  .sheet h2{ font-size:20px; margin-bottom:16px; }
+  .photobox{ width:100%; aspect-ratio:1; max-height:230px; background:var(--card2);
+    border:2px dashed var(--line); border-radius:16px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:8px; color:var(--dim); overflow:hidden; }
+  .photobox img{ width:100%; height:100%; object-fit:cover; }
+  .field{ margin-top:16px; }
+  .field label{ font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--dim);
+    display:block; margin-bottom:8px; }
+  .opts{ display:flex; gap:8px; flex-wrap:wrap; }
+  .opts .chip{ font-size:14px; }
+  input[type=file]{ display:none; }
+  .hint{ font-size:11px; color:var(--dim); margin-top:6px; line-height:1.4; }
+  .wheel-wrap{ position:relative; width:220px; height:220px; margin:8px auto 0; touch-action:none; }
+  #wheel{ width:220px; height:220px; border-radius:50%; display:block;
+    box-shadow:0 0 0 1px var(--line) inset; }
+  .wheel-dot{ position:absolute; width:20px; height:20px; border-radius:50%;
+    border:3px solid #fff; box-shadow:0 0 0 1.5px rgba(0,0,0,.5); transform:translate(-50%,-50%);
+    pointer-events:none; left:110px; top:110px; }
+  .light-slider{ -webkit-appearance:none; appearance:none; width:220px; height:10px;
+    border-radius:6px; display:block; margin:16px auto 0; outline:none;
+    background:linear-gradient(90deg,#000,#888,#fff); }
+  .light-slider::-webkit-slider-thumb{ -webkit-appearance:none; width:22px; height:22px;
+    border-radius:50%; background:var(--gold); border:2px solid #fff; }
+  .color-preview{ display:flex; align-items:center; gap:10px; justify-content:center;
+    margin-top:14px; font-size:13px; color:var(--dim); }
+  .preview-sw{ width:28px; height:28px; border-radius:8px; border:1px solid var(--line); }
+  .swatches{ display:flex; gap:8px; flex-wrap:wrap; }
+  .sw{ width:34px; height:34px; border-radius:50%; border:2px solid transparent; }
+  .sw.on{ border-color:var(--text); transform:scale(1.12); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Fit<span>ted</span></h1>
+  <div class="count" id="count"></div>
+</header>
+
+<!-- TODAY -->
+<section class="view active" id="v-today">
+  <div class="filters" id="filters">
+    <div class="chip on" data-f="any">Any vibe</div>
+    <div class="chip" data-f="casual">Casual</div>
+    <div class="chip" data-f="dressy">Dressy</div>
+    <div class="chip" data-f="warm">Warm day</div>
+    <div class="chip" data-f="cold">Cold day</div>
+  </div>
+  <div id="fitscore"></div>
+  <div class="outfit" id="outfit"></div>
+  <div class="btnrow">
+    <button class="primary" onclick="rollOutfit()">Shuffle fit ⟳</button>
+  </div>
+</section>
+
+<!-- CLOSET -->
+<section class="view" id="v-closet">
+  <div id="closet"></div>
+</section>
+
+<!-- NAV -->
+<nav>
+  <button id="nav-today" class="on" onclick="show('today')"><span class="ic">👕</span>Today</button>
+  <button onclick="openSheet()"><span class="ic">＋</span>Add</button>
+  <button id="nav-closet" onclick="show('closet')"><span class="ic">🗄️</span>Closet</button>
+</nav>
+
+<!-- ADD SHEET -->
+<div class="sheet" id="sheet">
+  <div class="sheet-inner">
+    <h2>Add to closet</h2>
+    <label class="photobox" id="photobox" for="file">
+      <span style="font-size:34px">📷</span>
+      <span id="photohint">Tap to take / choose photo</span>
+    </label>
+    <input type="file" id="file" accept="image/*" capture="environment">
+
+    <div class="field">
+      <label>What is it?</label>
+      <div class="opts" id="type-opts"></div>
+    </div>
+    <div class="field">
+      <label>Color</label>
+      <div class="wheel-wrap">
+        <canvas id="wheel" width="220" height="220"></canvas>
+        <div class="wheel-dot" id="wheel-dot"></div>
+      </div>
+      <input type="range" id="light" class="light-slider" min="0" max="100" value="50">
+      <div class="color-preview">
+        <span class="preview-sw" id="preview-sw"></span>
+        <span id="preview-hex"></span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Vibe</label>
+      <div class="opts" id="formal-opts"></div>
+    </div>
+    <div class="field">
+      <label>Warmth</label>
+      <div class="opts" id="warm-opts"></div>
+    </div>
+    <div class="field">
+      <label>Fit</label>
+      <div class="opts" id="fit-opts"></div>
+    </div>
+    <div class="field">
+      <label>Role</label>
+      <div class="opts" id="role-opts"></div>
+      <div class="hint">Statement = the bold / eye-catching piece (patterns, bright colors, chains).
+        Everyday = quiet basics. A good fit has <b>one</b> statement, the rest everyday.</div>
+    </div>
+
+    <div class="btnrow">
+      <button class="ghost" onclick="closeSheet()">Cancel</button>
+      <button class="primary" onclick="saveItem()">Save item</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- data ---------------- */
+const TYPES = ["top","bottom","shoes","outer"];
+const FORMAL = ["casual","dressy"];
+const WARMTH = ["warm","cold","either"];
+const FITS = ["fitted","regular","loose"];
+const ROLES = ["everyday","statement"];
+const COLORS = {
+  black:"#111", white:"#f2f2f2", gray:"#8b8b98", navy:"#22304a",
+  blue:"#3b6fd4", denim:"#4a6a8a", brown:"#6b4a2f", beige:"#c9b48c",
+  green:"#3f7d54", red:"#c0392b", olive:"#5b5a2e", tan:"#b98b53",
+  purple:"#6c4a86", pink:"#c76b8f"
+};
+const NEUTRALS = ["black","white","gray","navy","denim","brown","beige","tan"];
+
+let items = JSON.parse(localStorage.getItem("fitted_items") || "[]");
+let current = { top:null, bottom:null, shoes:null, outer:null };
+let currentInfo = null;
+let filter = "any";
+
+/* migrate older items that predate fit/role tags (runs in boot, after helpers) */
+function migrateItems(){
+  let changed=false;
+  items.forEach(i=>{
+    if(i.color && i.color[0]!=="#" && COLORS[i.color]){ i.color=COLORS[i.color]; changed=true; }
+    if(!i.fit){ i.fit="regular"; changed=true; }
+    if(!i.role){ i.role = isNeutral(i.color) ? "everyday" : "statement"; changed=true; }
+  });
+  if(changed) save();
+}
+
+/* ---------------- helpers ---------------- */
+const save = () => localStorage.setItem("fitted_items", JSON.stringify(items));
+const byType = t => items.filter(i => i.type === t);
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+const emoji = { top:"👕", bottom:"👖", shoes:"👟", outer:"🧥" };
+
+/* ---- color math (HSL) ---- */
+function hslToRgb(h,s,l){            // h 0-1
+  let r,g,b;
+  if(s===0){ r=g=b=l; }
+  else{
+    const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+    const f=(p,q,t)=>{ if(t<0)t+=1; if(t>1)t-=1;
+      if(t<1/6)return p+(q-p)*6*t; if(t<1/2)return q;
+      if(t<2/3)return p+(q-p)*(2/3-t)*6; return p; };
+    r=f(p,q,h+1/3); g=f(p,q,h); b=f(p,q,h-1/3);
+  }
+  return [Math.round(r*255),Math.round(g*255),Math.round(b*255)];
+}
+const rgbToHex=(r,g,b)=>"#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("");
+const hslToHex=(h,s,l)=>{ const [r,g,b]=hslToRgb((((h%360)+360)%360)/360,s,l); return rgbToHex(r,g,b); };
+function hexToHsl(hex){
+  let c=(hex||"#808080").replace("#",""); if(c.length===3)c=c.split("").map(x=>x+x).join("");
+  const r=parseInt(c.slice(0,2),16)/255, g=parseInt(c.slice(2,4),16)/255, b=parseInt(c.slice(4,6),16)/255;
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b); let h=0,s=0,l=(mx+mn)/2;
+  if(mx!==mn){ const d=mx-mn; s=l>0.5?d/(2-mx-mn):d/(mx+mn);
+    if(mx===r)h=(g-b)/d+(g<b?6:0); else if(mx===g)h=(b-r)/d+2; else h=(r-g)/d+4; h*=60; }
+  return {h,s,l};
+}
+const hueDist=(a,b)=>{ const d=Math.abs(a-b)%360; return d>180?360-d:d; };
+
+/* a color reads "neutral" (goes with anything) by its HSL, not a fixed list */
+function isNeutral(hex){
+  if(typeof hex!=="string"||hex[0]!=="#") return true;
+  const {h,s,l}=hexToHsl(hex);
+  if(s<0.15) return true;                 // grays / black / white
+  if(l<0.18) return true;                 // very dark → navy/charcoal
+  if(l>0.9)  return true;                 // cream / off-white
+  if(h>=20&&h<=45&&s<0.6) return true;    // earth tones: brown / tan / beige
+  return false;
+}
+
+/* rough human name for a hex, for labels */
+function colorLabel(hex){
+  if(typeof hex!=="string"||hex[0]!=="#") return hex||"color";
+  const {h,s,l}=hexToHsl(hex);
+  if(s<0.15){ if(l<0.22)return "black"; if(l>0.85)return "white"; return "gray"; }
+  if(l<0.18) return "dark";
+  const bands=[[16,"red"],[45,"orange"],[68,"yellow"],[95,"lime"],[160,"green"],
+    [200,"teal"],[255,"blue"],[290,"purple"],[335,"pink"],[360,"red"]];
+  for(const [max,nm] of bands){ if(h<=max) return nm; }
+  return "color";
+}
+
+function updateCount(){
+  document.getElementById("count").textContent =
+    items.length ? items.length + " items" : "";
+}
+
+/* score a full outfit 0-130ish; higher = sharper. returns {score, reasons} */
+function scoreOutfit(pieces){
+  pieces = pieces.filter(Boolean);
+  let score = 100;
+  const good=[], bad=[];
+
+  // --- color harmony (cluster bold hues; colors within 30° read as one "story") ---
+  const boldHues = pieces.filter(p=>!isNeutral(p.color)).map(p=>hexToHsl(p.color).h);
+  const reps=[];
+  boldHues.forEach(h=>{ if(!reps.some(r=>hueDist(r,h)<=30)) reps.push(h); });
+  if(reps.length===0){ score-=6; }                                        // all neutral: safe, a touch flat
+  else if(reps.length===1){ score+=14; good.push("neutral base + one color story"); }
+  else if(reps.length===2){ score-=18; bad.push("two colors competing"); }
+  else { score-=34; bad.push("too many colors"); }
+
+  // --- statement balance ---
+  const statements = pieces.filter(p=>p.role==="statement").length;
+  if(statements===1){ score+=10; good.push("one clear focal piece"); }
+  else if(statements===0){ score-=4; }
+  else { score-=12*(statements-1); bad.push("statement pieces fighting"); }
+
+  // --- fit / proportion (tops & bottoms) ---
+  const fits = pieces.filter(p=>p.type==="top"||p.type==="bottom").map(p=>p.fit);
+  if(fits.includes("fitted") && fits.includes("loose")){ score+=8; good.push("balanced proportions"); }
+  else if(fits.length>=2 && fits.every(f=>f==="loose")){ score-=6; bad.push("all loose, no shape"); }
+  else if(fits.length>=2 && fits.every(f=>f==="fitted")){ score-=3; }
+
+  // --- formality consistency ---
+  if([...new Set(pieces.map(p=>p.formal))].length>1){ score-=15; bad.push("mixed formality"); }
+
+  return { score, reason: bad[0] || good[0] || "clean and simple" };
+}
+
+/* text rating from a score */
+function rateLabel(s){
+  if(s>=120) return {label:"🔥 Sharp", n:"A"};
+  if(s>=108) return {label:"Clean",   n:"B"};
+  if(s>=96)  return {label:"Solid",   n:"C"};
+  return {label:"Eh — reshuffle", n:"D"};
+}
+
+function matchFilter(i){
+  if(filter==="any") return true;
+  if(filter==="casual"||filter==="dressy") return i.formal===filter;
+  if(filter==="warm") return i.warm==="warm"||i.warm==="either";
+  if(filter==="cold") return i.warm==="cold"||i.warm==="either";
+  return true;
+}
+
+/* ---------------- outfit engine ---------------- */
+function rollOutfit(){
+  const tops = byType("top").filter(matchFilter);
+  const bottoms = byType("bottom").filter(matchFilter);
+  const shoes = byType("shoes").filter(matchFilter);
+  const outers = byType("outer").filter(matchFilter);
+
+  if(!tops.length || !bottoms.length){
+    renderOutfit(true); return;
+  }
+
+  // generate a pile of candidate outfits, score each, keep the best few
+  const cands=[];
+  for(let n=0; n<120; n++){
+    const t=pick(tops), b=pick(bottoms);
+    const s=shoes.length ? pick(shoes) : null;
+    let o=null;
+    if(outers.length && (filter==="cold" || Math.random()<0.3)) o=pick(outers);
+    const set={ top:t, bottom:b, shoes:s, outer:o };
+    const key=[t.id,b.id,s?s.id:0,o?o.id:0].join("-");
+    const { score, reason }=scoreOutfit([t,b,s,o]);
+    cands.push({ set, score, reason, key });
+  }
+
+  // dedupe identical combos, sort best-first, pick from the top handful for variety
+  const seen=new Set(), unique=[];
+  cands.sort((a,b)=>b.score-a.score);
+  for(const c of cands){ if(!seen.has(c.key)){ seen.add(c.key); unique.push(c); } }
+  const pool=unique.slice(0, Math.min(4, unique.length));
+  const chosen=pick(pool);
+
+  current=chosen.set;
+  currentInfo=chosen;
+  renderOutfit(false);
+}
+
+function slotHTML(item,label){
+  if(!item) return "";
+  const img = item.photo
+    ? `<img src="${item.photo}">`
+    : `<div class="ph">${emoji[item.type]}</div>`;
+  const tags = [colorLabel(item.color), item.formal, item.warm!=="either"?item.warm:""].
+    filter(Boolean).join(" · ");
+  return `<div class="slot">${img}
+    <div class="meta"><div class="lbl">${label}</div>
+    <div class="name">${item.name||item.type}</div>
+    <div class="tags">${tags}</div></div></div>`;
+}
+
+function renderOutfit(empty){
+  const el = document.getElementById("outfit");
+  const badge = document.getElementById("fitscore");
+  if(empty){
+    badge.innerHTML="";
+    el.innerHTML = `<div class="empty-note">
+      Add at least one <b>top</b> and one <b>bottom</b> to your closet,
+      then shuffle for a fit.</div>`;
+    return;
+  }
+  if(currentInfo){
+    const r=rateLabel(currentInfo.score);
+    badge.innerHTML=`<div class="fitscore">
+      <div class="ring">${r.n}</div>
+      <div class="txt"><div class="rate">${r.label}</div>
+      <div class="why">${currentInfo.reason}</div></div></div>`;
+  }
+  el.innerHTML =
+    slotHTML(current.outer,"Layer") +
+    slotHTML(current.top,"Top") +
+    slotHTML(current.bottom,"Bottom") +
+    slotHTML(current.shoes,"Shoes");
+}
+
+/* ---------------- closet ---------------- */
+function renderCloset(){
+  const el=document.getElementById("closet");
+  if(!items.length){
+    el.innerHTML=`<div class="empty-note">Your closet's empty.<br>
+      Tap <b>＋ Add</b> to put your first piece in.</div>`;
+    return;
+  }
+  let html="";
+  TYPES.forEach(t=>{
+    const list=byType(t);
+    if(!list.length) return;
+    html+=`<div class="section-h">${t}s (${list.length})</div><div class="grid">`;
+    list.forEach(i=>{
+      const img=i.photo?`<img src="${i.photo}">`:`<div class="ph">${emoji[t]}</div>`;
+      html+=`<div class="item">${img}
+        <button class="x" onclick="delItem('${i.id}')">×</button>
+        <div class="tag"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;
+          background:${i.color};margin-right:5px;vertical-align:middle"></span>${colorLabel(i.color)}</div></div>`;
+    });
+    html+="</div>";
+  });
+  el.innerHTML=html;
+}
+
+function delItem(id){
+  items=items.filter(i=>i.id!==id);
+  save(); updateCount(); renderCloset();
+}
+
+/* ---------------- add sheet ---------------- */
+let draft={ photo:null, type:"top", color:"#3b6fd4", formal:"casual", warm:"either",
+            fit:"regular", role:"everyday" };
+
+function buildOpts(){
+  const mk=(host,vals,key)=>{
+    document.getElementById(host).innerHTML = vals.map(v=>
+      `<div class="chip ${draft[key]===v?'on':''}" data-v="${v}">${v}</div>`).join("");
+    document.getElementById(host).querySelectorAll(".chip").forEach(c=>
+      c.onclick=()=>{ draft[key]=c.dataset.v; buildOpts(); });
+  };
+  mk("type-opts",TYPES,"type");
+  mk("formal-opts",FORMAL,"formal");
+  mk("warm-opts",WARMTH,"warm");
+  mk("fit-opts",FITS,"fit");
+  mk("role-opts",ROLES,"role");
+}
+
+/* ---- color wheel ---- */
+let wheelH=210, wheelS=0.6, wheelL=0.5;
+
+function drawWheel(){
+  const c=document.getElementById("wheel"), ctx=c.getContext("2d");
+  const R=110, img=ctx.createImageData(220,220), d=img.data;
+  for(let y=0;y<220;y++) for(let x=0;x<220;x++){
+    const dx=x-110, dy=y-110, r=Math.sqrt(dx*dx+dy*dy), i=(y*220+x)*4;
+    if(r<=R){
+      let a=Math.atan2(dy,dx)*180/Math.PI; if(a<0)a+=360;
+      const [rr,gg,bb]=hslToRgb(a/360, Math.min(1,r/R), wheelL);
+      d[i]=rr; d[i+1]=gg; d[i+2]=bb; d[i+3]=255;
+    }
+  }
+  ctx.putImageData(img,0,0);
+}
+function placeDot(){
+  const R=110, rad=wheelS*R, a=wheelH*Math.PI/180;
+  const dot=document.getElementById("wheel-dot");
+  dot.style.left=(110+rad*Math.cos(a))+"px";
+  dot.style.top =(110+rad*Math.sin(a))+"px";
+}
+function updatePreview(){
+  const hex=hslToHex(wheelH,wheelS,wheelL);
+  draft.color=hex;
+  document.getElementById("preview-sw").style.background=hex;
+  document.getElementById("preview-hex").textContent=colorLabel(hex).toUpperCase()+"  "+hex;
+}
+function pickFromEvent(e){
+  const c=document.getElementById("wheel"), rect=c.getBoundingClientRect();
+  let dx=(e.clientX-rect.left)-110, dy=(e.clientY-rect.top)-110;
+  let r=Math.sqrt(dx*dx+dy*dy); const R=110;
+  if(r>R){ dx*=R/r; dy*=R/r; r=R; }
+  let a=Math.atan2(dy,dx)*180/Math.PI; if(a<0)a+=360;
+  wheelH=a; wheelS=Math.min(1,r/R);
+  placeDot(); updatePreview();
+}
+function initWheel(){
+  const {h,s,l}=hexToHsl(draft.color);
+  wheelH=h; wheelS=s; wheelL=l;
+  document.getElementById("light").value=Math.round(l*100);
+  drawWheel(); placeDot(); updatePreview();
+  const c=document.getElementById("wheel");
+  if(!c.dataset.bound){
+    const move=e=>{ e.preventDefault(); pickFromEvent(e); };
+    c.addEventListener("pointerdown",e=>{ c.setPointerCapture(e.pointerId); move(e);
+      c.onpointermove=move; });
+    c.addEventListener("pointerup",()=>{ c.onpointermove=null; });
+    document.getElementById("light").addEventListener("input",e=>{
+      wheelL=e.target.value/100; drawWheel(); updatePreview(); });
+    c.dataset.bound="1";
+  }
+}
+
+function openSheet(){
+  draft={ photo:null, type:"top", color:"#3b6fd4", formal:"casual", warm:"either",
+          fit:"regular", role:"everyday" };
+  document.getElementById("photobox").innerHTML=
+    `<span style="font-size:34px">📷</span><span>Tap to take / choose photo</span>`;
+  buildOpts();
+  initWheel();
+  document.getElementById("sheet").classList.add("open");
+}
+function closeSheet(){ document.getElementById("sheet").classList.remove("open"); }
+
+/* photo -> resize to ~320px jpeg -> dataURL (keeps localStorage small) */
+document.getElementById("file").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=320, sc=Math.min(1,max/Math.max(img.width,img.height));
+      const c=document.createElement("canvas");
+      c.width=img.width*sc; c.height=img.height*sc;
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+      draft.photo=c.toDataURL("image/jpeg",0.72);
+      document.getElementById("photobox").innerHTML=`<img src="${draft.photo}">`;
+    };
+    img.src=ev.target.result;
+  };
+  rd.readAsDataURL(f);
+});
+
+function saveItem(){
+  const it={
+    id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+    photo:draft.photo, type:draft.type, color:draft.color,
+    formal:draft.formal, warm:draft.warm, fit:draft.fit, role:draft.role,
+    name:colorLabel(draft.color)+" "+draft.type
+  };
+  try{
+    items.push(it); save();
+  }catch(err){
+    alert("Storage full — try deleting a few items. (Photos take space.)");
+    items.pop(); return;
+  }
+  updateCount(); renderCloset();
+  closeSheet();
+  if(byType("top").length && byType("bottom").length &&
+     !current.top) rollOutfit();
+}
+
+/* ---------------- nav ---------------- */
+function show(v){
+  document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+  document.getElementById("v-"+v).classList.add("active");
+  document.getElementById("nav-today").classList.toggle("on",v==="today");
+  document.getElementById("nav-closet").classList.toggle("on",v==="closet");
+  if(v==="closet") renderCloset();
+}
+
+document.getElementById("filters").querySelectorAll(".chip").forEach(c=>
+  c.onclick=()=>{
+    document.querySelectorAll("#filters .chip").forEach(x=>x.classList.remove("on"));
+    c.classList.add("on"); filter=c.dataset.f; rollOutfit();
+  });
+
+/* ---------------- boot ---------------- */
+migrateItems();
+updateCount();
+if(byType("top").length && byType("bottom").length) rollOutfit();
+else renderOutfit(true);
+
+/* register a tiny service worker so it installs cleanly (optional, offline) */
+if("serviceWorker" in navigator){
+  const swCode=`self.addEventListener("fetch",()=>{});`;
+  const blob=new Blob([swCode],{type:"text/javascript"});
+  navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
+}
+</script>
+</body>
+</html>
