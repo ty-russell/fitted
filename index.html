@@ -176,6 +176,7 @@
         <span class="preview-sw" id="preview-sw"></span>
         <span id="preview-hex"></span>
       </div>
+      <div class="hint" id="auto-note" style="text-align:center"></div>
     </div>
     <div class="field">
       <label>Vibe</label>
@@ -512,16 +513,47 @@ function initWheel(){
       c.onpointermove=move; });
     c.addEventListener("pointerup",()=>{ c.onpointermove=null; });
     document.getElementById("light").addEventListener("input",e=>{
-      wheelL=e.target.value/100; drawWheel(); updatePreview(); });
+      wheelL=e.target.value/100; drawWheel(); updatePreview();
+      const n=document.getElementById("auto-note"); if(n) n.textContent=""; });
     c.dataset.bound="1";
   }
 }
 
+/* ---- predictive: pull the dominant clothing color from the photo ---- */
+function detectColor(canvas){
+  const ctx=canvas.getContext("2d"), w=canvas.width, h=canvas.height;
+  // sample the central 50% box — clothing is usually centered, background isn't
+  const x0=(w*0.25)|0, y0=(h*0.25)|0, bw=Math.max(1,(w*0.5)|0), bh=Math.max(1,(h*0.5)|0);
+  const d=ctx.getImageData(x0,y0,bw,bh).data;
+  const rs=[],gs=[],bs=[];
+  for(let i=0;i<d.length;i+=16){            // every 4th pixel = fast + plenty of data
+    if(d[i+3]<128) continue;                // skip transparent
+    rs.push(d[i]); gs.push(d[i+1]); bs.push(d[i+2]);
+  }
+  if(!rs.length) return null;
+  // median per channel — robust against stray background pixels & shadows
+  const med=a=>{ a.sort((x,y)=>x-y); return a[a.length>>1]; };
+  return [med(rs),med(gs),med(bs)];
+}
+
+function applyDetectedColor(hex){
+  const {h,s,l}=hexToHsl(hex);
+  wheelH=h; wheelS=s; wheelL=l;
+  const ls=document.getElementById("light"); if(ls) ls.value=Math.round(l*100);
+  drawWheel(); placeDot(); updatePreview();
+  draft.role = isNeutral(hex) ? "everyday" : "statement";  // auto statement vs everyday
+  buildOpts();
+  const note=document.getElementById("auto-note");
+  if(note) note.textContent=`✨ Auto-filled ${colorLabel(hex)} · marked ${draft.role} — tap the wheel to change`;
+}
+
 function openSheet(){
-  draft={ photo:null, type:"top", color:"#3b6fd4", formal:"casual", warm:"either",
+  const lastType=localStorage.getItem("fitted_lasttype")||"top";
+  draft={ photo:null, type:lastType, color:"#3b6fd4", formal:"casual", warm:"either",
           fit:"regular", role:"everyday" };
   document.getElementById("photobox").innerHTML=
     `<span style="font-size:34px">📷</span><span>Tap to take / choose photo</span>`;
+  document.getElementById("auto-note").textContent="";
   buildOpts();
   initWheel();
   document.getElementById("sheet").classList.add("open");
@@ -541,6 +573,8 @@ document.getElementById("file").addEventListener("change",e=>{
       c.getContext("2d").drawImage(img,0,0,c.width,c.height);
       draft.photo=c.toDataURL("image/jpeg",0.72);
       document.getElementById("photobox").innerHTML=`<img src="${draft.photo}">`;
+      const rgb=detectColor(c);                       // predict color from photo
+      if(rgb) applyDetectedColor(rgbToHex(rgb[0],rgb[1],rgb[2]));
     };
     img.src=ev.target.result;
   };
@@ -560,6 +594,7 @@ function saveItem(){
     alert("Storage full — try deleting a few items. (Photos take space.)");
     items.pop(); return;
   }
+  localStorage.setItem("fitted_lasttype", it.type);   // remember for next add
   updateCount(); renderCloset();
   closeSheet();
   if(byType("top").length && byType("bottom").length &&
