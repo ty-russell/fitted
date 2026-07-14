@@ -46,6 +46,11 @@
   .slot .meta .tags{ font-size:12px; color:var(--dim); margin-top:4px; }
   .empty-note{ text-align:center; color:var(--dim); padding:60px 24px; line-height:1.6; }
   .filters{ display:flex; gap:8px; margin:14px 2px; flex-wrap:wrap; }
+  .stylebar{ display:flex; gap:8px; overflow-x:auto; padding:14px 2px 2px;
+    -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  .stylebar::-webkit-scrollbar{ display:none; }
+  .stylebar .chip{ flex-shrink:0; }
+  .style-desc{ font-size:12px; color:var(--dim); margin:8px 4px 0; line-height:1.4; min-height:16px; }
   .chip{ background:var(--card); border:1px solid var(--line); color:var(--text);
     padding:8px 14px; border-radius:20px; font-size:13px; }
   .chip.on{ background:var(--gold); color:#000; border-color:var(--gold); font-weight:600; }
@@ -125,6 +130,15 @@
 
 <!-- TODAY -->
 <section class="view active" id="v-today">
+  <div class="stylebar" id="styles">
+    <div class="chip on" data-s="balanced">Balanced</div>
+    <div class="chip" data-s="oldmoney">Old Money</div>
+    <div class="chip" data-s="street">Streetwear</div>
+    <div class="chip" data-s="minimal">Minimalist</div>
+    <div class="chip" data-s="techwear">Techwear</div>
+    <div class="chip" data-s="earthy">Earthy</div>
+  </div>
+  <div class="style-desc" id="style-desc"></div>
   <div class="filters" id="filters">
     <div class="chip on" data-f="any">Any vibe</div>
     <div class="chip" data-f="casual">Casual</div>
@@ -223,6 +237,7 @@ let items = JSON.parse(localStorage.getItem("fitted_items") || "[]");
 let current = { top:null, bottom:null, shoes:null, outer:null };
 let currentInfo = null;
 let filter = "any";
+let style = localStorage.getItem("fitted_style") || "balanced";
 
 /* migrate older items that predate fit/role tags (runs in boot, after helpers) */
 function migrateItems(){
@@ -294,8 +309,73 @@ function updateCount(){
     items.length ? items.length + " items" : "";
 }
 
-/* score a full outfit 0-130ish; higher = sharper. returns {score, reasons} */
-function scoreOutfit(pieces){
+/* ---- aesthetic style profiles ---- */
+const STYLES = {
+  balanced: { label:"Balanced",   tip:"A solid, well-put-together fit — no particular aesthetic." },
+  oldmoney: { label:"Old Money",  tip:"Refined & muted: navy, beige, white, brown. Dressy-leaning, nothing loud." },
+  street:   { label:"Streetwear", tip:"Relaxed & bold: one strong statement piece, looser fits, sneaker-forward." },
+  minimal:  { label:"Minimalist", tip:"Clean & tonal: few colors, no noise, fitted lines." },
+  techwear: { label:"Techwear",   tip:"Dark & functional: black, gray, olive, layered." },
+  earthy:   { label:"Earthy",     tip:"Warm earth tones — browns, olive, tan — relaxed and layered." }
+};
+
+/* how well does an outfit hit a chosen aesthetic? returns {bonus, note} */
+function styleScore(pieces, key){
+  if(!key || key==="balanced") return { bonus:0, note:null };
+  pieces = pieces.filter(Boolean);
+  let bonus=0; const hit=[], miss=[];
+
+  const info = pieces.map(p=>{ const c=hexToHsl(p.color); const neutral=isNeutral(p.color);
+    return { p, ...c, neutral,
+      bright: !neutral && c.s>0.5 && c.l>0.3 && c.l<0.72,
+      dark:   c.l<0.28,
+      earthy: (c.h>=18 && c.h<=70 && c.l<0.62) || (neutral && c.h>=18 && c.h<=45) };
+  });
+  const statements = pieces.filter(p=>p.role==="statement").length;
+  const fitsTB     = pieces.filter(p=>p.type==="top"||p.type==="bottom").map(p=>p.fit);
+  const anyDressy  = pieces.some(p=>p.formal==="dressy");
+  const allCasual  = pieces.every(p=>p.formal==="casual");
+
+  if(key==="oldmoney"){
+    info.forEach(x=>{ if(x.neutral||x.earthy) bonus+=6; if(x.bright) bonus-=10; });
+    if(anyDressy) bonus+=8;
+    if(statements>=1) bonus-=6;
+    if(fitsTB.includes("loose")) bonus-=4;
+    (bonus>=6?hit:miss).push(bonus>=6?"refined & muted ✓":"too loud for old-money");
+  }
+  else if(key==="street"){
+    if(allCasual) bonus+=8;
+    if(statements===1) bonus+=10; else if(statements===0) bonus-=6;
+    if(fitsTB.includes("loose")) bonus+=6;
+    if(pieces.some(p=>p.type==="shoes"&&p.formal==="casual")) bonus+=5;
+    if(anyDressy) bonus-=8;
+    (bonus>=6?hit:miss).push(bonus>=6?"relaxed & bold ✓":"too clean-cut for street");
+  }
+  else if(key==="minimal"){
+    const bolds=info.filter(x=>!x.neutral).length;
+    if(bolds===0) bonus+=10; else if(bolds===1) bonus+=4; else bonus-=8;
+    if(statements===0) bonus+=6; else bonus-=6;
+    if(fitsTB.length && fitsTB.every(f=>f!=="loose")) bonus+=4;
+    (bonus>=6?hit:miss).push(bonus>=6?"clean & tonal ✓":"too busy for minimal");
+  }
+  else if(key==="techwear"){
+    info.forEach(x=>{ if(x.dark||(x.neutral&&x.l<0.5)) bonus+=6; else if(x.bright) bonus-=8; });
+    if(info.some(x=>x.h>=60&&x.h<=110&&x.l<0.55)) bonus+=5;   // olive
+    if(fitsTB.includes("loose")) bonus+=4;
+    if(allCasual) bonus+=4;
+    (bonus>=6?hit:miss).push(bonus>=6?"dark & functional ✓":"too light/bright for techwear");
+  }
+  else if(key==="earthy"){
+    info.forEach(x=>{ if(x.earthy) bonus+=8; else if(x.bright) bonus-=6; });
+    if(pieces.some(p=>p.type==="outer")) bonus+=4;
+    if(fitsTB.includes("loose")) bonus+=3;
+    (bonus>=6?hit:miss).push(bonus>=6?"warm earth tones ✓":"missing earthy tones");
+  }
+  return { bonus, note: (bonus<0 && miss[0]) ? miss[0] : (hit[0] || miss[0] || null) };
+}
+
+/* score a full outfit 0-130ish; higher = sharper. returns {score, reason} */
+function scoreOutfit(pieces, style){
   pieces = pieces.filter(Boolean);
   let score = 100;
   const good=[], bad=[];
@@ -324,7 +404,15 @@ function scoreOutfit(pieces){
   // --- formality consistency ---
   if([...new Set(pieces.map(p=>p.formal))].length>1){ score-=15; bad.push("mixed formality"); }
 
-  return { score, reason: bad[0] || good[0] || "clean and simple" };
+  // --- aesthetic style overlay ---
+  let styleNote=null;
+  if(style && style!=="balanced"){
+    const sr=styleScore(pieces, style);
+    score += sr.bonus;
+    styleNote = sr.note;
+  }
+
+  return { score, reason: styleNote || bad[0] || good[0] || "clean and simple" };
 }
 
 /* text rating from a score */
@@ -363,7 +451,7 @@ function rollOutfit(){
     if(outers.length && (filter==="cold" || Math.random()<0.3)) o=pick(outers);
     const set={ top:t, bottom:b, shoes:s, outer:o };
     const key=[t.id,b.id,s?s.id:0,o?o.id:0].join("-");
-    const { score, reason }=scoreOutfit([t,b,s,o]);
+    const { score, reason }=scoreOutfit([t,b,s,o], style);
     cands.push({ set, score, reason, key });
   }
 
@@ -615,6 +703,22 @@ document.getElementById("filters").querySelectorAll(".chip").forEach(c=>
     document.querySelectorAll("#filters .chip").forEach(x=>x.classList.remove("on"));
     c.classList.add("on"); filter=c.dataset.f; rollOutfit();
   });
+
+document.getElementById("styles").querySelectorAll(".chip").forEach(c=>
+  c.onclick=()=>{
+    document.querySelectorAll("#styles .chip").forEach(x=>x.classList.remove("on"));
+    c.classList.add("on"); style=c.dataset.s;
+    localStorage.setItem("fitted_style", style);
+    document.getElementById("style-desc").textContent = STYLES[style].tip;
+    rollOutfit();
+  });
+
+/* restore saved style selection */
+(function initStyle(){
+  const chip=document.querySelector(`#styles .chip[data-s="${style}"]`);
+  if(chip){ document.querySelectorAll("#styles .chip").forEach(x=>x.classList.remove("on")); chip.classList.add("on"); }
+  document.getElementById("style-desc").textContent = (STYLES[style]||STYLES.balanced).tip;
+})();
 
 /* ---------------- boot ---------------- */
 migrateItems();
